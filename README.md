@@ -56,21 +56,23 @@ expose are shown as `N/A` / unavailable; they are never guessed.
 
 ## Installation
 
+```bash
+pipx install aiusage-dashboard
+```
+
+The PyPI package is named `aiusage-dashboard` (the name `aiusage` belongs to
+an unrelated project); the command it installs is `aiusage`.
+
 Requires Python 3.9+ and no other runtime dependencies (plus `tomli` on
 Python < 3.11 for the optional config file).
 
-```bash
-pipx install .                # from a clone of this repository
-```
-
-Other options:
+From a clone of this repository:
 
 ```bash
+pipx install .                # recommended
 pip install --user .          # plain pip
 ./install.sh                  # wrapper around pipx/pip; never edits shell rc files
 ```
-
-Once published: `pipx install aiusage`.
 
 ## Quick start
 

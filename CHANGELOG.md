@@ -2,6 +2,8 @@
 
 ## 0.1.2
 
+- Published on PyPI as `aiusage-dashboard` (the `aiusage` name is taken by an
+  unrelated project). The command is still `aiusage`.
 - Watch mode shows a footer: refresh interval, next update time and
   "Ctrl-C to quit", so it no longer looks frozen between refreshes.
 - `--json` reports the IANA timezone name (e.g. `America/New_York`) instead

@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aiusage"
+name = "aiusage-dashboard"
 dynamic = ["version"]
 description = "One terminal dashboard for the usage / limits of Claude Code, OpenAI Codex (multiple accounts) and Grok."
 readme = "README.md"
