@@ -7,7 +7,7 @@ Usage:
 Extra forbidden literals (e.g. your own email addresses or username) can be
 supplied without committing them, via a comma-separated environment variable:
 
-    AIUSAGE_SCAN_EXTRA="me@mydomain.com,myusername" python scripts/secret_scan.py
+    AIUSAGE_SCAN_EXTRA="me@example.com,myusername" python scripts/secret_scan.py
 
 Exit status is 1 when anything suspicious is found. A line can be exempted
 with the marker ``secret-scan: allow``.
