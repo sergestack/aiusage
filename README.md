@@ -6,6 +6,8 @@
 OpenAI Codex (any number of accounts) and Grok — asks each one for the usage
 and limits it exposes, and shows everything in one aligned, color-coded view.
 
+![aiusage dashboard](docs/screenshot.png)
+
 ```text
 AI USAGE  ·  Mon Sep 28, 2026 · 8:49 PM EDT
 ────────────────────────────────────────────────────────────
