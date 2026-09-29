@@ -1,0 +1,8 @@
+{
+  "account": {
+    "type": "chatgpt",
+    "email": "codex-a@example.com",
+    "planType": "plus"
+  },
+  "error": "failed to fetch codex rate limits: 401 Unauthorized"
+}

@@ -1,0 +1,16 @@
+{
+  "model": {
+    "display_name": "Example"
+  },
+  "version": "0.0.0",
+  "rate_limits": {
+    "five_hour": {
+      "used_percentage": 20,
+      "resets_at": 2000000000
+    },
+    "seven_day": {
+      "used_percentage": 50,
+      "resets_at": 2000086400
+    }
+  }
+}

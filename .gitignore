@@ -1,0 +1,47 @@
+# Python build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Caches and runtime data — never commit
+.cache/
+cache/
+*.log
+logs/
+
+# Auth / credentials — never commit
+auth.json
+.credentials.json
+*credentials*.json
+*.pem
+*.key
+.env
+.env.*
+
+# Raw personal responses and diagnostic captures
+raw-*.json
+*-raw-*.json
+*.raw.json
+diagnostic*.json
+diagnostics/
+captures/
+*.capture.*
+statusline-latest.json
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Local tooling
+.code-review-graph/

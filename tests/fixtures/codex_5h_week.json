@@ -1,0 +1,25 @@
+{
+  "account": {
+    "type": "chatgpt",
+    "email": "codex-a@example.com",
+    "planType": "plus"
+  },
+  "limits": {
+    "rateLimits": {
+      "limitId": "codex",
+      "primary": {
+        "usedPercent": 30,
+        "windowDurationMins": 300,
+        "resetsAt": "__NOW_PLUS_2H__"
+      },
+      "secondary": {
+        "usedPercent": 45,
+        "windowDurationMins": 10080,
+        "resetsAt": "__NOW_PLUS_5D__"
+      }
+    },
+    "rateLimitResetCredits": {
+      "availableCount": 2
+    }
+  }
+}

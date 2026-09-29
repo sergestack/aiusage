@@ -1,0 +1,14 @@
+{
+  "five_hour": {
+    "utilization": 12.0,
+    "resets_at": "2033-05-18T03:33:20+00:00"
+  },
+  "seven_day": {
+    "utilization": 66.0,
+    "resets_at": "2033-05-20T03:33:20.123456+00:00"
+  },
+  "seven_day_opus": null,
+  "extra_usage": {
+    "is_enabled": false
+  }
+}
