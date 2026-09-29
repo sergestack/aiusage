@@ -1,4 +1,4 @@
-include LICENSE README.md SECURITY.md CONTRIBUTING.md install.sh
+include LICENSE README.md CHANGELOG.md SECURITY.md CONTRIBUTING.md install.sh
 recursive-include tests *.py *.json
 recursive-include scripts *.py
 global-exclude __pycache__ *.py[cod]

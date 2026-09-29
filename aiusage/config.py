@@ -55,7 +55,8 @@ DEFAULTS: dict[str, Any] = {
         "enabled": True,
         "command": "grok",
         "home": None,  # default: $GROK_HOME or ~/.grok
-        "stale_after_seconds": 600,
+        # Grok freshness: a live result is current; a cached fallback (live
+        # call failed) is always shown STALE and hidden once its reset passes.
         "timeout_seconds": 8.0,
         # When the stored Grok session token is expired, refresh it with the
         # stored OIDC refresh token (the same thing the Grok CLI does) and

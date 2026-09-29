@@ -32,6 +32,8 @@ FAKE_CODEX = textwrap.dedent(
         elif method == "account/read":
             send({{"id": mid, "result": {{"account": scenario.get("account")}}}})
         elif method == "account/rateLimits/read":
+            import time
+            time.sleep(scenario.get("limits_delay", 0))
             if scenario.get("error"):
                 send({{"id": mid, "error": {{"code": -32603, "message": scenario["error"]}}}})
             else:
@@ -95,6 +97,9 @@ def env(tmp_path, monkeypatch) -> Env:
     for var in ("CODEX_HOME", "CLAUDE_CONFIG_DIR", "GROK_HOME", "AIUSAGE_CONFIG", "AIUSAGE_CACHE_DIR", "AIUSAGE_TZ"):
         monkeypatch.delenv(var, raising=False)
     os.environ.pop("NO_COLOR", None)
+    import aiusage.util
+
+    monkeypatch.setattr(aiusage.util, "SYSTEM_FALLBACK_DIRS", ())
     return Env(home, bin_dir)
 
 

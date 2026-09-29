@@ -30,6 +30,7 @@ from aiusage import __version__
 from aiusage.models import AccountUsage, UsageWindow
 from aiusage.providers.base import AccountRef, Detection, Provider
 from aiusage.util import (
+    child_env,
     command_version,
     compact_duration,
     expand_path,
@@ -377,17 +378,16 @@ class CodexProvider(Provider):
         ]
 
     # --------------------------------------------------------------- query
-    def query_usage(self, ref: AccountRef) -> AccountUsage:
+    def _open(self, ref: AccountRef) -> tuple[Optional[AppServer], AccountUsage]:
+        """Phase 1: start ``codex app-server`` for one home and identify the
+        account it is logged into. The server is left running for phase 2."""
         started = int(time.time())
-        home = Path(ref.details["home"])
         exe = which(self.command) or self.command
-        timeout = float(self.settings.get("timeout_seconds") or 12.0)
-        wait_updates = float(self.settings.get("notification_wait_seconds") or 4.0)
+        timeout = self.number("timeout_seconds", 12.0, 1.0, 120.0)
         account = AccountUsage(self.id, ref.name, profile=ref.profile, fetched_at=started,
                                source="codex app-server")
-        trace: dict[str, Any] = {"home": ref.profile}
-        account.diagnostics = trace
-        env = dict(os.environ, CODEX_HOME=str(home))
+        account.diagnostics = {"home": ref.profile, "homePath": ref.details["home"], "identified": False}
+        env = child_env(exe, CODEX_HOME=str(ref.details["home"]))
         server: Optional[AppServer] = None
         try:
             server = AppServer([exe, "app-server"], env)
@@ -399,14 +399,28 @@ class CodexProvider(Provider):
             acct = server.request("account/read", 2, timeout, {"refreshToken": False})
             info = acct.get("account") if isinstance(acct.get("account"), dict) else None
             if not info:
-                trace["identified"] = False
                 account.error = "not logged in"
-                return account
-            trace["identified"] = True
+                server.close()
+                return None, account
+            account.diagnostics["identified"] = True
             account.email = info.get("email") if isinstance(info.get("email"), str) else None
             account.plan = info.get("planType") if isinstance(info.get("planType"), str) else None
-            trace["accountType"] = info.get("type")
+            account.diagnostics["accountType"] = info.get("type")
+            return server, account
+        except Exception as exc:
+            account.error = " ".join(str(exc).split())[:300] or type(exc).__name__
+            if server is not None:
+                server.close()
+            return None, account
 
+    def _read_limits(self, server: AppServer, account: AccountUsage) -> AccountUsage:
+        """Phase 2: read rate limits over an identified app-server session."""
+        started = int(time.time())
+        home = Path(account.diagnostics["homePath"])
+        timeout = self.number("timeout_seconds", 12.0, 1.0, 120.0)
+        wait_updates = self.number("notification_wait_seconds", 4.0, 0.0, 60.0)
+        trace = account.diagnostics
+        try:
             notifications: list[dict[str, Any]] = []
 
             def collect_update(msg: dict[str, Any]) -> None:
@@ -415,7 +429,6 @@ class CodexProvider(Provider):
 
             initial = server.request("account/rateLimits/read", 3, timeout, on_notification=collect_update)
             merged = json.loads(json.dumps(initial))
-            trace["initialResponse"] = initial
             try:
                 complete = windows_complete(select_rate_limits(merged), started)
             except ValueError:
@@ -445,7 +458,7 @@ class CodexProvider(Provider):
             if not account.plan and isinstance(rate_limits.get("planType"), str):
                 account.plan = rate_limits["planType"]
             log_windows, log_evidence = latest_session_log_windows(
-                home, started, float(self.settings.get("session_log_max_age_days") or 8)
+                home, started, self.number("session_log_max_age_days", 8, 0.0, 365.0)
             )
             trace["sessionLog"] = log_evidence
             windows, warnings, raw_fields = build_windows(rate_limits, started, observed + log_windows)
@@ -458,21 +471,55 @@ class CodexProvider(Provider):
             if account.manual_resets:
                 account.manual_reset_hint = "run /usage in Codex"
             account.fetched_at = int(time.time())
-            return account
         except Exception as exc:
             account.error = " ".join(str(exc).split())[:300] or type(exc).__name__
+        return account
+
+    def query_usage(self, ref: AccountRef) -> AccountUsage:
+        """Full query of a single home (used by diagnostics)."""
+        server, account = self._open(ref)
+        if server is None:
             return account
+        try:
+            return self._read_limits(server, account)
         finally:
-            if server is not None:
-                server.close()
+            server.close()
 
     def query_all(self) -> list[AccountUsage]:
+        """Identify every home in parallel, then read limits once per real
+        account from its first home; duplicates are only used as fallbacks.
+        A slow or broken duplicate profile therefore cannot delay the view."""
         refs = self.discover_accounts()
         if not refs:
             return []
         with ThreadPoolExecutor(max_workers=min(8, len(refs))) as pool:
-            results = list(pool.map(self.query_usage, refs))
-        return self.dedupe(results)
+            opened = list(pool.map(self._open, refs))
+        groups: dict[str, list[tuple[Optional[AppServer], AccountUsage]]] = {}
+        for server, account in opened:
+            if account.diagnostics.get("identified"):
+                key = (account.email or "").lower() or f"home:{account.profile}"
+                groups.setdefault(key, []).append((server, account))
+
+        def read_group(members: list[tuple[Optional[AppServer], AccountUsage]]) -> None:
+            done = False
+            for server, account in members:
+                if server is None:
+                    continue
+                if done:
+                    account.error = "skipped: duplicate profile of an account already read"
+                    continue
+                self._read_limits(server, account)
+                done = not account.error and any(w.available for w in account.windows)
+
+        try:
+            if groups:
+                with ThreadPoolExecutor(max_workers=min(8, len(groups))) as pool:
+                    list(pool.map(read_group, groups.values()))
+        finally:
+            for server, _account in opened:
+                if server is not None:
+                    server.close()
+        return self.dedupe([account for _server, account in opened])
 
     def dedupe(self, results: list[AccountUsage]) -> list[AccountUsage]:
         """One entry per real account. Homes logged into the same account are

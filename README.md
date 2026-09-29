@@ -96,6 +96,14 @@ On every run aiusage:
    anything it does not need, never printing secrets);
 3. queries all providers in parallel and skips clients that are not installed.
 
+CLIs are found on `PATH` first, then in the standard installer locations
+(`~/.local/bin`, `~/.claude/local`, `~/.grok/bin`, `~/.npm-global/bin`,
+`~/.bun/bin`, `~/.cargo/bin`, `~/bin`, `/usr/local/bin`, `/opt/homebrew/bin`),
+so `aiusage` also works from cron, systemd or launchd with a minimal `PATH`.
+
+Terminals or pipes that cannot display Unicode get an ASCII rendering
+(`#`/`.` bars) instead of an error.
+
 ## Multiple Codex accounts
 
 Codex keeps each login in a `CODEX_HOME` directory. aiusage looks at:
@@ -108,7 +116,10 @@ Codex keeps each login in a `CODEX_HOME` directory. aiusage looks at:
 A directory counts as a profile only if it contains Codex login state or
 config. Each profile is asked which account it is logged into (via
 `codex app-server`), and **profiles logged into the same account are merged**
-so each account appears once. Profiles that are logged out or cannot be
+so each account appears once. Every profile is identified in parallel, but
+usage is read only once per account (from its first profile, falling back to
+duplicates on error), so a slow or broken duplicate profile cannot slow the
+dashboard down. Profiles that are logged out or cannot be
 identified are not shown. Default names come from the directory
 (`~/.codex-work` → `Codex (work)`); rename them in the config.
 

@@ -99,3 +99,30 @@ def test_config_init(env, capsys):
     assert cli.main(["config", "--init"]) == 0
     assert (env.home / ".config/aiusage/config.toml").exists()
     assert load_config().loaded
+
+
+def test_ascii_only_stdout_never_crashes(env, monkeypatch, capsys):
+    import io
+    import sys
+
+    raw = io.BytesIO()
+    stream = io.TextIOWrapper(raw, encoding="ascii")
+    monkeypatch.setattr(sys, "stdout", stream)
+    env.install("codex")
+    env.codex_home(".codex", codex_scenario())
+    assert cli.main(["--no-color"]) == 0
+    sys.stdout.flush()
+    text = raw.getvalue().decode("ascii")
+    assert "AI USAGE" in text and "#" in text and "?" not in text
+
+
+def test_agents_in_user_bin_found_without_path(env, monkeypatch):
+    """cron/systemd style minimal PATH: agents in ~/.local/bin still found."""
+    user_bin = env.home / ".local" / "bin"
+    user_bin.mkdir(parents=True)
+    env.bin = user_bin
+    env.install("codex")
+    env.codex_home(".codex", codex_scenario())
+    monkeypatch.setenv("PATH", "/nonexistent")
+    accounts = collect(Config())
+    assert [a.provider for a in accounts] == ["codex"] and accounts[0].error is None

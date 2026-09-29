@@ -17,6 +17,35 @@ from aiusage.renderer import render_dashboard, render_json_payload, render_teleg
 from aiusage.util import command_version, pretty_path
 
 PROVIDER_IDS = ("claude", "codex", "grok")
+
+# Fallback glyphs for terminals/pipes that cannot encode Unicode output
+# (e.g. PYTHONIOENCODING=ascii or legacy code pages). Never "?".
+ASCII_GLYPHS = str.maketrans({
+    "█": "#", "░": ".", "■": "#", "□": ".", "·": "-", "▸": ">", "↳": ">", "─": "-",
+    "—": "-", "✗": "x", "⚠": "!", "\ufe0f": "", "…": "...",
+})
+
+
+class _AsciiStdout:
+    """Wraps a text stream whose encoding cannot represent the dashboard."""
+
+    def __init__(self, stream) -> None:
+        self._stream = stream
+        self._encoding = stream.encoding or "ascii"
+
+    def write(self, text: str) -> int:
+        safe = text.translate(ASCII_GLYPHS).encode(self._encoding, "replace").decode(self._encoding)
+        return self._stream.write(safe)
+
+    def __getattr__(self, name):
+        return getattr(self._stream, name)
+
+
+def ensure_encodable_stdout() -> None:
+    try:
+        "█░▸·↳─—✗⚠■□".encode(sys.stdout.encoding or "ascii")
+    except (UnicodeEncodeError, LookupError):
+        sys.stdout = _AsciiStdout(sys.stdout)  # type: ignore[assignment]
 SUBCOMMANDS = ("detect", "diagnose", "self-test", "capture-claude", "config")
 
 
@@ -154,6 +183,7 @@ def run_dashboard(args: argparse.Namespace, config: Config) -> int:
 
 def main(argv: Optional[list[str]] = None) -> int:
     args = build_parser().parse_args(argv)
+    ensure_encodable_stdout()
     if args.command == "self-test" or args.self_test_flag:
         from aiusage.selftest import run_self_test
 

@@ -166,3 +166,32 @@ def test_provider_scoped_names_do_not_leak_across_providers(env):
     assert cfg.display_name("codex", "Codex", "shared@example.com") == "Codex Main"
     assert cfg.display_name("grok", "Grok", "shared@example.com", "~/.grok") == "Grok Personal"
     assert cfg.display_name("claude", "Claude Code", "shared@example.com") == "Claude Code"
+
+
+def test_numeric_settings_honor_zero_and_reject_junk(env):
+    p = provider({"codex": {"notification_wait_seconds": 0, "timeout_seconds": "abc", "session_log_max_age_days": -5}})
+    assert p.number("notification_wait_seconds", 4.0, 0.0, 60.0) == 0.0
+    assert p.number("timeout_seconds", 12.0, 1.0, 120.0) == 12.0
+    assert p.number("session_log_max_age_days", 8, 0.0, 365.0) == 0.0
+    assert p.number("missing", 3.0) == 3.0
+
+
+def test_zero_notification_wait_does_not_wait(env):
+    env.install("codex")
+    env.codex_home(".codex", scenario("codex_week_only.json"))
+    started = time.monotonic()
+    accounts = provider({"codex": {"notification_wait_seconds": 0}}).query_all()
+    assert accounts[0].windows[1].used_percent == 15
+    assert time.monotonic() - started < 3
+
+
+def test_slow_duplicate_profile_does_not_delay_dashboard(env):
+    env.install("codex")
+    env.codex_home(".codex", scenario("codex_5h_week.json"))
+    slow = scenario("codex_error.json")
+    slow["limits_delay"] = 6  # read by the fake only if rate limits are requested
+    env.codex_home(".codex-zz-slow-duplicate", slow)
+    started = time.monotonic()
+    accounts = provider().query_all()
+    assert time.monotonic() - started < 4
+    assert len(accounts) == 1 and accounts[0].error is None

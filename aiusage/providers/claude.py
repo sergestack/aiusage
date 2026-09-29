@@ -33,6 +33,7 @@ from aiusage.models import AccountUsage, UsageWindow
 from aiusage.providers.base import AccountRef, Detection, Provider
 from aiusage.util import (
     HttpError,
+    child_env,
     command_version,
     compact_duration,
     expand_path,
@@ -142,6 +143,7 @@ class ClaudeProvider(Provider):
                 text=True,
                 timeout=timeout,
                 stdin=subprocess.DEVNULL,
+                env=child_env(exe),
             )
             data = json.loads(cp.stdout)
         except Exception:
@@ -285,8 +287,8 @@ class ClaudeProvider(Provider):
     # ----------------------------------------------------------- query
     def query_usage(self, ref: AccountRef) -> AccountUsage:
         now = int(time.time())
-        timeout = max(1.0, min(30.0, float(self.settings.get("timeout_seconds") or 8.0)))
-        stale_after = int(self.settings.get("stale_after_seconds") or 600)
+        timeout = self.number("timeout_seconds", 8.0, 1.0, 60.0)
+        stale_after = int(self.number("stale_after_seconds", 600))
         status = self.auth_status()
         email = status.get("email") or status.get("accountEmail")
         plan = status.get("subscriptionType") or status.get("plan")
@@ -301,7 +303,7 @@ class ClaudeProvider(Provider):
 
         # The usage endpoint rate-limits aggressively; reuse a live result
         # captured moments ago instead of calling it again.
-        min_interval = int(self.settings.get("min_refresh_seconds") or 60)
+        min_interval = int(self.number("min_refresh_seconds", 60))
         snapshots = self.load_snapshots()
         if snapshots and "OAuth usage API" in str(snapshots[0]["source"]) and now - snapshots[0]["captured_at"] < min_interval:
             recent = self._from_snapshot(account, None, stale_after, now)

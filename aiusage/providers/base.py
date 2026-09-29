@@ -52,6 +52,18 @@ class Provider:
     def settings(self) -> dict[str, Any]:
         return self.config.section(self.id)
 
+    def number(self, name: str, default: float, lo: float = 0.0, hi: float = 86400.0 * 30) -> float:
+        """Numeric setting: explicit 0 is honored, invalid values fall back
+        to the default, and the result is clamped to [lo, hi]."""
+        value = self.settings.get(name)
+        try:
+            number = float(value) if value is not None and not isinstance(value, bool) else float(default)
+        except (TypeError, ValueError):
+            number = float(default)
+        if number != number:  # NaN
+            number = float(default)
+        return max(lo, min(hi, number))
+
     @property
     def enabled(self) -> bool:
         return self.config.provider_enabled(self.id)

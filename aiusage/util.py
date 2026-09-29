@@ -162,13 +162,34 @@ def expand_path(value: Any) -> Path:
     return Path(os.path.expandvars(os.path.expanduser(str(value))))
 
 
+# Where the official installers put agent CLIs. Searched after PATH so the
+# dashboard also works from cron/systemd/launchd with a minimal PATH.
+HOME_FALLBACK_DIRS = (".local/bin", ".claude/local", ".grok/bin", ".npm-global/bin", ".bun/bin", ".cargo/bin", "bin")
+SYSTEM_FALLBACK_DIRS: tuple[str, ...] = ("/usr/local/bin", "/opt/homebrew/bin")
+
+
 def which(command: str) -> Optional[str]:
     if not command:
         return None
     if os.sep in command:
         path = expand_path(command)
         return str(path) if path.exists() and os.access(path, os.X_OK) else None
-    return shutil.which(command)
+    found = shutil.which(command)
+    if found:
+        return found
+    dirs = [str(Path.home() / d) for d in HOME_FALLBACK_DIRS] + list(SYSTEM_FALLBACK_DIRS)
+    return shutil.which(command, path=os.pathsep.join(dirs))
+
+
+def child_env(executable: Optional[str], **extra: str) -> dict[str, str]:
+    """Environment for running an agent CLI: the executable's own directory
+    goes first on PATH so launchers (e.g. npm shims needing ``node``) work
+    even when found via the fallback directories."""
+    env = dict(os.environ)
+    if executable:
+        env["PATH"] = os.pathsep.join(filter(None, [str(Path(executable).parent), env.get("PATH", "")]))
+    env.update(extra)
+    return env
 
 
 def command_version(executable: str, timeout: float = 5.0) -> Optional[str]:
@@ -179,6 +200,7 @@ def command_version(executable: str, timeout: float = 5.0) -> Optional[str]:
             capture_output=True,
             timeout=timeout,
             stdin=subprocess.DEVNULL,
+            env=child_env(executable),
         )
     except (OSError, subprocess.SubprocessError):
         return None

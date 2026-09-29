@@ -269,7 +269,7 @@ class GrokProvider(Provider):
     # --------------------------------------------------------------- query
     def query_usage(self, ref: AccountRef) -> AccountUsage:
         started = int(time.time())
-        timeout = float(self.settings.get("timeout_seconds") or 8.0)
+        timeout = self.number("timeout_seconds", 8.0, 1.0, 60.0)
         account = AccountUsage(self.id, ref.name, profile=ref.profile, fetched_at=started,
                                source="Grok credits billing API")
         record_key, record, auth_error = self.auth_record()

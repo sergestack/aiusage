@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -44,6 +45,21 @@ PATTERNS = {
 
 
 def iter_files(root: Path):
+    """Files that would be published: in a git checkout, tracked plus
+    untracked-but-not-ignored files; otherwise every file under root."""
+    if (root / ".git").exists():
+        try:
+            listed = subprocess.run(
+                ["git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+                capture_output=True, check=True,
+            ).stdout.decode().split("\0")
+            for rel in sorted(filter(None, listed)):
+                path = root / rel
+                if path.is_file() and path.suffix not in SKIP_SUFFIXES:
+                    yield path
+            return
+        except (OSError, subprocess.CalledProcessError):
+            pass
     for path in sorted(root.rglob("*")):
         if any(part in SKIP_DIRS or part.endswith(".egg-info") for part in path.relative_to(root).parts):
             continue
