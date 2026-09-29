@@ -134,3 +134,13 @@ def test_reset_text():
     text, countdown = fmt_reset(NOW + 3 * 86400, TZ, now=NOW)
     assert text.startswith("resets ") and countdown == "in 3d"
     assert fmt_reset(NOW - 5, TZ, now=NOW)[0].startswith("reset passed")
+
+
+def test_json_timezone_is_iana_name(monkeypatch):
+    from aiusage import renderer
+
+    monkeypatch.setenv("TZ", "Europe/Berlin")
+    assert renderer.render_json_payload([], None)["timezone"] == "Europe/Berlin"
+    assert renderer.render_json_payload([], "Asia/Tokyo")["timezone"] == "Asia/Tokyo"
+    monkeypatch.delenv("TZ")
+    assert renderer.local_zone_name()  # never empty

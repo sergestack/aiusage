@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+- Watch mode shows a footer: refresh interval, next update time and
+  "Ctrl-C to quit", so it no longer looks frozen between refreshes.
+- `--json` reports the IANA timezone name (e.g. `America/New_York`) instead
+  of an abbreviation such as `EDT`.
+
 ## 0.1.1
 
 - Codex: identify all profiles in parallel, then read limits once per account;

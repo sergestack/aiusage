@@ -7,13 +7,14 @@ import json
 import os
 import sys
 import time
+from datetime import datetime
 from typing import Optional
 
 from aiusage import __version__
 from aiusage.config import EXAMPLE_CONFIG, Config, cache_dir, config_file, load_config
 from aiusage.discovery import build_providers, collect, detect_all
 from aiusage.providers.claude import ClaudeProvider
-from aiusage.renderer import render_dashboard, render_json_payload, render_telegram
+from aiusage.renderer import ansi, render_dashboard, render_json_payload, render_telegram, resolve_tz
 from aiusage.util import command_version, pretty_path
 
 PROVIDER_IDS = ("claude", "codex", "grok")
@@ -154,11 +155,20 @@ def cmd_capture_claude(config: Config) -> int:
     return 0 if ok else 1
 
 
+def watch_footer(interval: int, tz_name: Optional[str], color: bool) -> str:
+    """Tell the user watch mode keeps running and how to leave it."""
+    upcoming = datetime.fromtimestamp(time.time() + interval, resolve_tz(tz_name))
+    clock = upcoming.strftime("%H:%M:%S")
+    text = f"watching · refresh every {interval}s · next update {clock} · Ctrl-C to quit"
+    return ansi(text, "2", color)
+
+
 def run_dashboard(args: argparse.Namespace, config: Config) -> int:
     providers = None
     if args.provider:
         providers = [p for p in build_providers(config, args.provider) if p.enabled and p.detect().installed]
     color = sys.stdout.isatty() and not args.no_color and "NO_COLOR" not in os.environ
+    interval = max(5, args.watch) if args.watch else 0
     while True:
         accounts = collect(config, providers)
         if args.json:
@@ -167,8 +177,10 @@ def run_dashboard(args: argparse.Namespace, config: Config) -> int:
             output = render_telegram(accounts, config.timezone)
         else:
             output = render_dashboard(accounts, config.timezone, color)
-            if args.watch and sys.stdout.isatty():
-                output = "\033[2J\033[H" + output
+            if args.watch:
+                output += "\n" + watch_footer(interval, config.timezone, color)
+                if sys.stdout.isatty():
+                    output = "\033[2J\033[H" + output
         try:
             print(output, flush=True)
         except BrokenPipeError:
@@ -176,7 +188,7 @@ def run_dashboard(args: argparse.Namespace, config: Config) -> int:
         if not args.watch:
             return 0
         try:
-            time.sleep(max(5, args.watch))
+            time.sleep(interval)
         except KeyboardInterrupt:
             return 0
 

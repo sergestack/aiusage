@@ -126,3 +126,22 @@ def test_agents_in_user_bin_found_without_path(env, monkeypatch):
     monkeypatch.setenv("PATH", "/nonexistent")
     accounts = collect(Config())
     assert [a.provider for a in accounts] == ["codex"] and accounts[0].error is None
+
+
+def test_watch_shows_how_to_quit(env, monkeypatch, capsys):
+    env.install("codex")
+    env.codex_home(".codex", codex_scenario())
+
+    real_sleep = cli.time.sleep
+
+    def stop(seconds):
+        if seconds >= 5:  # the watch interval; subprocess waits use tiny sleeps
+            raise KeyboardInterrupt
+        real_sleep(seconds)
+
+    monkeypatch.setattr(cli.time, "sleep", stop)
+    assert cli.main(["--watch", "2", "--no-color"]) == 0
+    out = capsys.readouterr().out
+    assert "refresh every 5s" in out and "Ctrl-C to quit" in out  # minimum interval is 5s
+    assert cli.main(["--watch", "30", "--json"]) == 0
+    json.loads(capsys.readouterr().out)  # JSON watch output stays pure JSON

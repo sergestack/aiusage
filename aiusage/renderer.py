@@ -6,10 +6,12 @@ wrapped in ANSI codes, so colors never shift columns.
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import time
 from datetime import datetime, tzinfo
+from pathlib import Path
 from typing import Any, Optional
 
 from aiusage import __version__
@@ -49,6 +51,27 @@ def resolve_tz(name: Optional[str]) -> tzinfo:
     local = datetime.now().astimezone().tzinfo
     assert local is not None
     return local
+
+
+def local_zone_name() -> str:
+    """IANA name of the system timezone (e.g. "America/New_York"), falling
+    back to the current abbreviation when it cannot be determined."""
+    tz_env = os.environ.get("TZ", "").lstrip(":")
+    if tz_env and "/" in tz_env and not tz_env.startswith("/"):
+        return tz_env
+    try:
+        name = Path("/etc/timezone").read_text().strip()
+        if name:
+            return name
+    except OSError:
+        pass
+    try:
+        target = os.path.realpath("/etc/localtime")
+        if "zoneinfo/" in target:
+            return target.split("zoneinfo/", 1)[1]
+    except OSError:
+        pass
+    return datetime.now().astimezone().strftime("%Z") or "local"
 
 
 def fmt_clock(dt: datetime) -> str:
@@ -326,6 +349,6 @@ def render_json_payload(accounts: list[AccountUsage], tz_name: Optional[str] = N
     return {
         "aiusage_version": __version__,
         "generated_at": int(time.time()),
-        "timezone": tz_name or str(resolve_tz(None)),
+        "timezone": tz_name or local_zone_name(),
         "accounts": [a.to_dict() for a in accounts],
     }
